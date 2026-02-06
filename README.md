@@ -51,9 +51,13 @@ Manual handling needed for: input-mutating components, complex two-way bindings,
 
 ## Installation
 
-The plugin is auto-loaded from `~/.claude/plugins/softever-angular-upgrade/`.
+```bash
+git clone https://github.com/peter9294/softever-angular-upgrade.git ~/.claude/plugins/softever-angular-upgrade
+```
 
-To verify: start a new Claude Code session and check that skills, agents, and the `/upgrade` command are available.
+The plugin auto-loads from `~/.claude/plugins/` on the next Claude Code session.
+
+To verify: start a new session and check that skills, agents, and the `/angular-upgrade` command are available.
 
 ## Escalation Protocol
 
