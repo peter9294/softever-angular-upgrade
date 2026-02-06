@@ -1,0 +1,18 @@
+{
+  "name": "softever-angular-upgrade",
+  "version": "1.0.0",
+  "description": "Battle-tested Angular upgrade methodology (v9-v21) with 8 anti-pattern rules, signal migration patterns, OnPush/zoneless migration, SCSS modernization, and self-verification testing. Encodes lessons from 93 real upgrade commits to prevent the ~23% rework rate observed in manual upgrades.",
+  "author": {
+    "name": "Softever"
+  },
+  "keywords": [
+    "angular",
+    "upgrade",
+    "migration",
+    "signals",
+    "onpush",
+    "zoneless",
+    "scss",
+    "testing"
+  ]
+}
