@@ -35,7 +35,7 @@ A Claude Code plugin encoding battle-tested methodology for Angular major versio
 
 ## Command
 
-`/upgrade` — Full orchestration workflow: analyze, plan, execute, review, verify.
+`/angular-upgrade` — Full orchestration workflow: analyze, plan, execute, review, verify.
 
 ## Tool Strategy
 
