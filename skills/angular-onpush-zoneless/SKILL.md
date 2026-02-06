@@ -244,3 +244,4 @@ See `references/onpush-audit-checklist.md` for the complete per-component audit.
 
 - `references/onpush-audit-checklist.md` — Per-component audit checklist
 - `references/zone-boundary-patterns.md` — Common zone boundary issues and fixes
+- `references/softever-subscribe-to-signal.md` — Real before/after examples from a 50-file subscribe→signal migration, including scope reduction strategy and common bugs

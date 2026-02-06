@@ -2,6 +2,8 @@
 
 A Claude Code plugin encoding battle-tested methodology for Angular major version upgrades. Built from real experience upgrading Angular 9 to 21 across a monorepo with 93 commits, where ~23% were corrective fixes for preventable mistakes.
 
+Includes production-migrated reference files from Softever's shared library architecture (`@base/`, `@lib/`) — BaseDropdown, BaseRadio, GridComponent, TabComponent, and more. These serve as templates for other Softever projects sharing the same architecture.
+
 ## The 8 Anti-Pattern Rules
 
 | # | Rule | What Goes Wrong Without It |

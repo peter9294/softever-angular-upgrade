@@ -262,3 +262,5 @@ isThai = computed(() => {
 - `references/signal-patterns.md` — Complete pattern catalog with examples
 - `references/signal-anti-patterns.md` — What NOT to do (with real failure stories)
 - `references/input-mutation-catalog.md` — How to identify and handle input-mutating components
+- `references/softever-base-classes.md` — Production-migrated base classes (BaseDropdown with watchedInputs, BaseRadio, BaseInput, BaseFeatureGridComponent legacy pattern)
+- `references/softever-lib-components.md` — Production-migrated library components (GridComponent with model/computed/effect, TabComponent, PaginationComponent, FileUploadButton with linkedSignal, LibSkeletonDirective)
