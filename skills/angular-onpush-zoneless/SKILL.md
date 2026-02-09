@@ -185,19 +185,32 @@ onAnimationDone(event: AnimationEvent) {
 
 ## NgZone Compatibility Assessment
 
-**These NgZone patterns ARE compatible with zoneless:**
-- `NgZone.run()` — Forces synchronous CD, works in zoneless
-- `NgZone.runOutsideAngular()` — Still useful for performance
+**Official Angular v21 guidance:** `NgZone.run` and `NgZone.runOutsideAngular` do NOT need to be removed for zoneless compatibility. Removing them can actually cause **performance regressions** for libraries that also support ZoneJS apps.
 
-**These NgZone patterns are NOT compatible:**
-- `NgZone.onStable` — No zone = never fires
-- `NgZone.onMicrotaskEmpty` — No zone = never fires
-- `NgZone.isStable` — Always true in zoneless
+**These NgZone patterns ARE compatible with zoneless (KEEP):**
+- `NgZone.run()` — Becomes a no-op wrapper in zoneless; harmless to keep
+- `NgZone.runOutsideAngular()` — Performance optimization still valid; documents intent even in zoneless
+
+**These NgZone patterns are NOT compatible (MUST REPLACE):**
+- `NgZone.onStable` — No zone = never fires. Replace with `afterNextRender()` or `afterRender()`
+- `NgZone.onMicrotaskEmpty` — No zone = never fires. Replace with `afterNextRender()`
+- `NgZone.isStable` — Always true in zoneless. Remove or use `PendingTasks`
+
+**Common valid patterns to keep:**
+1. `runOutsideAngular` wrapping high-frequency DOM events (mouse, drag, scroll, keyboard)
+2. `runOutsideAngular` wrapping third-party library initialization (Highcharts, tippy.js, Pickr, calendars)
+3. `zone.run()` re-entering Angular from third-party callbacks (chart events, color picker save, tooltip show/hide)
+4. `zone.run()` after `signal.set()` — redundant but harmless (signal already triggers CD)
 
 ```bash
-# Check for incompatible patterns
+# Check for incompatible patterns (these MUST be fixed)
 grep -rn "onStable\|onMicrotaskEmpty\|isStable" --include="*.ts" src/ projects/
+
+# Catalog all NgZone usages for review
+grep -rn "NgZone\|\.zone\." --include="*.ts" src/ projects/ | grep -v node_modules | grep -v ".spec.ts"
 ```
+
+See `references/softever-ngzone-patterns.md` for all 7 real NgZone usages in this codebase with analysis.
 
 ## Enabling Zoneless Change Detection
 
@@ -245,3 +258,4 @@ See `references/onpush-audit-checklist.md` for the complete per-component audit.
 - `references/onpush-audit-checklist.md` — Per-component audit checklist
 - `references/zone-boundary-patterns.md` — Common zone boundary issues and fixes
 - `references/softever-subscribe-to-signal.md` — Real before/after examples from a 50-file subscribe→signal migration, including scope reduction strategy and common bugs
+- `references/softever-ngzone-patterns.md` — All 7 real NgZone usages in the codebase with official Angular v21 compatibility analysis and migration decision matrix
