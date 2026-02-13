@@ -342,3 +342,108 @@ this.chartData = data;         // → this.chartData.set(data)
 this.workflowCount = data;     // → this.workflowCount.set(data)
 this.breadcrumbData = {...};   // → this.breadcrumbData.set({...})
 ```
+
+## BaseDocumentCheck — ViewChild Mock Pattern (RULE 9)
+
+This base class demonstrates why `viewChild.required` signals are problematic for testable components.
+
+```typescript
+@Directive()
+export class BaseDocumentCheck extends BaseFeatureGridComponent<any> {
+
+  // KEEP as @ViewChild — tests need to mock these with jasmine.createSpyObj
+  @ViewChild('approveModal') approveModal: SoftModalComponent;
+  @ViewChild('resultModal') resultModal: SoftModalComponent;
+
+  // Template refs for grid columns — MUST be static for setColumns()
+  @ViewChild('checkTypeTpl', { static: true }) checkTypeTpl: TemplateRef<any>;
+  @ViewChild('documentCheckTpl', { static: true }) documentCheckTpl: TemplateRef<any>;
+  // ... more static template refs
+
+  setColumns() {
+    this.columns = [
+      { prop: 'checkType', cellTemplate: this.checkTypeTpl },
+      // ... uses static template refs
+    ];
+  }
+
+  approve() {
+    this.approveModal.open();  // Tests mock this
+  }
+}
+```
+
+**Test setup pattern:**
+```typescript
+// After creating fixture but before detectChanges:
+component.approveModal = jasmine.createSpyObj('SoftModalComponent', ['open', 'close']);
+component.resultModal = jasmine.createSpyObj('SoftModalComponent', ['open', 'close']);
+```
+
+**Key lesson:** Two categories of ViewChild in this class:
+1. **Static template refs** → Keep `@ViewChild({ static: true })` (RULE 9 — no signal equivalent)
+2. **Modal component refs** → Keep `@ViewChild` (testability — tests need to mock `.open()`/`.close()`)
+
+## E-Form Base Classes — Signal Input Migration
+
+Three e-form base classes migrated from `@Input()` to `input()` signals:
+
+### BaseTruckTypeComponent
+
+```typescript
+@Directive()
+export class BaseTruckTypeComponent<TData extends EFormDTO> {
+  readonly form = input<NgForm>();          // was @Input()
+  readonly data = input<TData>();           // was @Input()
+
+  // Template: data()?.truckType, form()?.valid
+}
+```
+
+### BaseCompartmentFormComponent
+
+```typescript
+@Directive()
+export class BaseCompartmentFormComponent<TData extends EFormDTO> {
+  readonly data = model<TData>();           // was @Input() — uses model() because data is reassigned
+  readonly truckTypeList = input<any[]>();  // was @Input()
+
+  // data is reassigned: this.data.set(newData)
+  // Template: data()?.compartments, data()?.truckType
+}
+```
+
+### BaseInspectionCheckboxComponent
+
+```typescript
+@Directive()
+export class BaseInspectionCheckboxComponent<TData extends EFormDTO> {
+  readonly form = input<NgForm>();          // was @Input()
+  readonly data = input<TData>();           // was @Input()
+  readonly truckTypeList = input<any[]>([]);// was @Input()
+
+  // Template: data()?.inspectionItems, form()?.valid
+}
+```
+
+### E-Form Test Pattern
+
+Tests for e-form components must use `setInput()` and read signals with `()`:
+
+```typescript
+// Setting signal inputs in tests
+fixture.componentRef.setInput('form', mockForm);
+fixture.componentRef.setInput('data', mockData);
+
+// Reading signal values
+expect(component.data()).toBeDefined();
+expect(component.data().truckType).toBe('expected');
+
+// Mutating the mock object (NOT the signal — mutate the reference)
+mockData.truckType = 'newType';
+fixture.componentRef.setInput('data', mockData);  // Re-set to trigger change
+
+// Clearing inputs
+fixture.componentRef.setInput('data', undefined);
+expect(component.data()).toBeUndefined();
+```

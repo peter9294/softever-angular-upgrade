@@ -31,7 +31,7 @@ You are an Angular upgrade risk analyzer. Your job is to perform a **read-only**
 
 If your first analysis approach doesn't find what you expect, try at least 2 alternative search patterns before concluding something doesn't exist. Never assume the codebase is clean — dig deeper.
 
-## 7-Step Analysis Protocol
+## 8-Step Analysis Protocol
 
 ### Step 1: Duplicate Selector Scan (RULE 6)
 
@@ -111,7 +111,28 @@ grep -rc "@Output()" --include="*.ts" src/ projects/ | grep -v ":0$" | sort -t: 
 grep -rc "ngOnChanges" --include="*.ts" src/ projects/ | grep -v ":0$"
 ```
 
-### Step 7: Standalone Component Audit
+### Step 7: ViewChild Static Query Audit (RULE 9)
+
+Find `@ViewChild({ static: true })` queries that MUST NOT be converted to `viewChild()` signals:
+
+```bash
+# Count static ViewChild — these must be preserved as decorators
+grep -rn "ViewChild.*static.*true" --include="*.ts" src/ projects/ | grep -v node_modules
+
+# Find ViewChild used with viewChild() signal (potential misconversion)
+grep -rn "viewChild\b" --include="*.ts" src/ projects/ | grep -v "node_modules\|\.spec\."
+```
+
+**Risk Level:** HIGH if any `@ViewChild({ static: true })` exists in the migration scope. Angular `viewChild()` has NO static equivalent. Converting these causes NG0100 errors because the signal resolves during CD (too late for `ngOnInit`).
+
+Also check for `viewChild.required` on properties that tests need to mock:
+
+```bash
+# Find viewChild.required — check if tests mock these properties
+grep -rn "viewChild\.required" --include="*.ts" src/ projects/ | grep -v "node_modules\|\.spec\."
+```
+
+### Step 8: Standalone Component Audit
 
 For Angular 19+ upgrades:
 
@@ -141,6 +162,10 @@ grep -rn "@Component" --include="*.ts" src/ projects/ -A 5 | grep -v "standalone
 
 ### RULE 4: Subscribe Callbacks (OnPush Risk)
 - [Component:line]: [property being set], [fix: signal or markForCheck]
+
+### RULE 9: Static ViewChild Queries
+- [File:line]: [ref name], [used in ngOnInit/setColumns?], [KEEP as @ViewChild]
+- viewChild.required mockability: [list any that tests need to mock]
 
 ### SCSS Scope
 - Files with @import: X

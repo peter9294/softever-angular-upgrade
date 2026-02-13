@@ -27,7 +27,7 @@ tools: ["Read", "Grep", "Glob", "Bash"]
 
 You are a post-migration reviewer. Your job is to find bugs BEFORE they reach production. You perform **read-only** analysis and produce a structured report. You MUST NOT modify any files.
 
-## 7-Item Review Checklist
+## 9-Item Review Checklist
 
 ### 1. Missing Signal () Calls (RULE 7)
 
@@ -113,7 +113,43 @@ grep -rn "component\.\w\+[^(]" --include="*.spec.ts" src/ projects/ | \
   grep "expect\|toBe\|toEqual" | grep -v "()"
 ```
 
-### 7. SCSS Gap Detection (RULE 3)
+### 7. Static ViewChild Conversion (RULE 9)
+
+**Severity: CRITICAL** — `viewChild()` has no static equivalent. Converting `@ViewChild({ static: true })` causes NG0100.
+
+```bash
+# Check if any viewChild() signals are used in ngOnInit/setColumns (timing issue)
+grep -rn "viewChild\b" --include="*.ts" src/ projects/ | grep -v "node_modules\|\.spec\." | \
+  while read line; do
+    file=$(echo "$line" | cut -d: -f1)
+    if grep -q "ngOnInit\|setColumns" "$file"; then
+      echo "POTENTIAL RULE 9 VIOLATION: $line"
+    fi
+  done
+
+# Verify no @ViewChild({ static: true }) was accidentally converted
+grep -rn "viewChild.*static\|viewChild.*{.*static" --include="*.ts" src/ projects/
+# Should return nothing — viewChild() has no static option
+```
+
+### 8. ViewChild Testability (RULE 9)
+
+**Severity: HIGH** — `viewChild.required` creates unmockable getters.
+
+```bash
+# Find viewChild.required and check if tests mock those properties
+grep -rn "viewChild\.required" --include="*.ts" src/ projects/ | grep -v "node_modules\|\.spec\." | \
+  while read line; do
+    file=$(echo "$line" | cut -d: -f1)
+    prop=$(echo "$line" | grep -oP "readonly\s+\w+" | awk '{print $2}')
+    specFile="${file%.ts}.spec.ts"
+    if [ -f "$specFile" ] && grep -q "createSpyObj\|jasmine.createSpy" "$specFile"; then
+      echo "MOCK CONFLICT: $line — tests may try to mock this"
+    fi
+  done
+```
+
+### 9. SCSS Gap Detection (RULE 3)
 
 **Severity: MEDIUM** — Only relevant after SCSS migration.
 
@@ -158,6 +194,16 @@ echo "Classes: $found/$total found in SCSS"
 | File:Line | Binding | Fix Needed |
 |-----------|---------|-----------|
 | component.html:30 | [(ngModel)]="value" | Split to [ngModel] + (ngModelChange) |
+
+### CRITICAL: Static ViewChild Conversion (RULE 9)
+| File:Line | Property | Used In | Fix |
+|-----------|----------|---------|-----|
+| component.ts:15 | viewChild('switchTpl') | setColumns() in ngOnInit | Revert to @ViewChild({ static: true }) |
+
+### HIGH: ViewChild Testability (RULE 9)
+| File:Line | Property | Issue | Fix |
+|-----------|----------|-------|-----|
+| base.ts:20 | viewChild.required('modal') | Tests mock with createSpyObj | Revert to @ViewChild |
 
 ### MEDIUM: Effect Timing
 | File:Line | Context | Recommendation |

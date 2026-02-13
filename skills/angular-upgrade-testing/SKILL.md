@@ -177,6 +177,87 @@ component.onSave();
 expect(emittedValue).toEqual(expectedData);
 ```
 
+## ViewChild and Signal Query Testing
+
+### @ViewChild({ static: true }) — Grid Template Refs
+
+Static ViewChild refs resolve before `detectChanges()`. Tests using `mockViewChildReferences()` create signal-style mocks, but `detectChanges()` overwrites them with real template refs from the DOM.
+
+```typescript
+// In test helpers — mock creates callable spy functions
+mockViewChildReferences(component) {
+  component.grid = {
+    switchTpl: jasmine.createSpy('switchTpl').and.returnValue({}),
+    nameTpl: jasmine.createSpy('nameTpl').and.returnValue({}),
+    // ...
+  };
+}
+
+// After detectChanges(), grid's @ViewChild({ static: true }) refs
+// get their REAL values from the template, overwriting the mocks.
+// This is correct behavior — tests verify real template binding.
+```
+
+### @ViewChild (non-static) — Modal Mocking
+
+Non-static ViewChild refs are `undefined` before `detectChanges()`. Mock them AFTER creating the component but BEFORE calling code that uses them:
+
+```typescript
+beforeEach(async () => {
+  const testBed = await createTestBedFor(MyComponent);
+  fixture = testBed.fixture;
+  component = testBed.component;
+
+  // Mock BEFORE detectChanges (modals aren't in template with CUSTOM_ELEMENTS_SCHEMA)
+  component.approveModal = jasmine.createSpyObj('SoftModalComponent', ['open', 'close']);
+  component.resultModal = jasmine.createSpyObj('SoftModalComponent', ['open', 'close']);
+
+  fixture.detectChanges();
+});
+
+it('should open approve modal', () => {
+  component.approve();
+  expect(component.approveModal.open).toHaveBeenCalled();
+});
+```
+
+### viewChild.required — NOT Testable
+
+`viewChild.required` creates getter-backed properties that tests cannot mock:
+
+```typescript
+// Component with viewChild.required:
+private readonly _modal = viewChild.required<SoftModalComponent>('modal');
+get modal() { return this._modal(); }
+
+// Test FAILS:
+component.modal = jasmine.createSpyObj(...);
+// TypeError: Cannot set property which has only a getter
+
+// Solution: Use plain @ViewChild instead of viewChild.required
+// for properties that tests need to mock
+```
+
+### MockDropdownComponent — @Input() Required
+
+Mock components used in tests with `fixture.componentRef.setInput()` MUST have `@Input()` decorators:
+
+```typescript
+// WRONG — setInput() throws NG0303
+@Component({ selector: 'shared-dropdown', template: '' })
+class MockDropdownComponent {
+  optionList: any[] = [];  // Plain property — NOT an Angular input
+}
+
+// RIGHT — setInput() works
+@Component({ selector: 'shared-dropdown', template: '' })
+class MockDropdownComponent {
+  @Input() optionList: any[] = [];  // Angular input
+  @Input() value: any = null;
+  @Input() disabled = false;
+}
+```
+
 ## CLAUDE.md Rule: No expect() Inside if Statements
 
 ```typescript

@@ -1,6 +1,6 @@
 ---
 name: Angular Signals Migration
-description: Use this skill when the user asks to "migrate to signals", "convert @Input to signal", "convert @Output to output()", "signal migration", "input() migration", or when working with Angular signal patterns. Covers all 5 migration patterns (simple input, alias+local-copy, model, linkedSignal, watchedInputs), input classification by template binding, and critical anti-patterns. Encodes RULE 1 (input mutation pre-scan), RULE 2 (atomic complex migration), and RULE 7 (missing signal () verification).
+description: Use this skill when the user asks to "migrate to signals", "convert @Input to signal", "convert @Output to output()", "convert @ViewChild to viewChild()", "signal migration", "input() migration", "viewChild migration", or when working with Angular signal patterns. Covers all 5 migration patterns (simple input, alias+local-copy, model, linkedSignal, watchedInputs), ViewChild static timing constraints, input classification by template binding, and critical anti-patterns. Encodes RULE 1 (input mutation pre-scan), RULE 2 (atomic complex migration), RULE 7 (missing signal () verification), and RULE 9 (ViewChild static timing).
 version: 1.0.0
 ---
 
@@ -8,7 +8,56 @@ version: 1.0.0
 
 ## Purpose
 
-Guide the migration of `@Input()`, `@Output()`, and `ngOnChanges` to Angular's signal-based APIs (`input()`, `output()`, `model()`, `computed()`, `effect()`). This skill prevents the common mistakes that caused ~23% rework in a real 93-commit upgrade.
+Guide the migration of `@Input()`, `@Output()`, `@ViewChild`, and `ngOnChanges` to Angular's signal-based APIs (`input()`, `output()`, `viewChild()`, `model()`, `computed()`, `effect()`). This skill prevents the common mistakes that caused ~23% rework in a real 93-commit upgrade.
+
+## CRITICAL: ViewChild Static Timing (RULE 9)
+
+**NEVER convert `@ViewChild({ static: true })` to `viewChild()` signals.**
+
+Signal-based `viewChild()` resolves during change detection (equivalent to `{ static: false }`). There is **no `static` equivalent** for signal queries — confirmed by Angular team, tracked in GitHub issue #54376. The decorator API remains fully supported.
+
+### When to Keep `@ViewChild({ static: true })`
+
+Template refs used in `ngOnInit` or `setColumns()` MUST stay as decorators:
+
+```typescript
+// KEEP — needs value before first CD
+@ViewChild('switchTpl', { static: true }) switchTpl: TemplateRef<any>;
+@ViewChild('nameTpl', { static: true }) nameTpl: TemplateRef<any>;
+
+ngOnInit() {
+  this.setColumns();  // Uses template refs — must be available here
+}
+```
+
+### When `viewChild()` Is Safe
+
+Non-static queries (default `{ static: false }`) CAN be converted:
+
+```typescript
+// SAFE to convert — not used until after first CD
+@ViewChild('modal') modal: SoftModalComponent;
+// → can become: modal = viewChild<SoftModalComponent>('modal');
+```
+
+### `viewChild.required` Testability Warning
+
+`viewChild.required` creates getter-backed signals that **cannot be mocked** by tests:
+
+```typescript
+// PROBLEMATIC for testing:
+private readonly _modal = viewChild.required<SoftModalComponent>('modal');
+get modal() { return this._modal(); }
+
+// Tests CANNOT do: component.modal = jasmine.createSpyObj(...)
+// because the getter always returns the signal value
+```
+
+**Prefer plain `@ViewChild` for properties that tests need to mock** (like modals with `.open()`/`.close()` methods).
+
+### Migration Schematic Behavior
+
+Angular's `ng generate @angular/core:signal-queries-migration` will **skip** static queries automatically. If you run bulk migration, verify it didn't convert any `{ static: true }` refs.
 
 ## CRITICAL: Pre-Migration Scan (RULE 1)
 
@@ -257,10 +306,19 @@ isThai = computed(() => {
 });
 ```
 
+## ViewChild Migration Summary
+
+| ViewChild Pattern | Signal Equivalent | Safe to Convert? |
+|---|---|---|
+| `@ViewChild('ref', { static: true })` | None | NO — keep decorator |
+| `@ViewChild('ref')` (non-static) | `viewChild<T>('ref')` | YES |
+| `@ViewChild('ref')` (mocked in tests) | Keep `@ViewChild` | NO — viewChild.required breaks mocking |
+| `@ViewChildren(...)` | `viewChildren<T>(...)` | YES (always non-static) |
+
 ## References
 
 - `references/signal-patterns.md` — Complete pattern catalog with examples
 - `references/signal-anti-patterns.md` — What NOT to do (with real failure stories)
 - `references/input-mutation-catalog.md` — How to identify and handle input-mutating components
-- `references/softever-base-classes.md` — Production-migrated base classes (BaseDropdown with watchedInputs, BaseRadio, BaseInput, BaseFeatureGridComponent legacy pattern)
+- `references/softever-base-classes.md` — Production-migrated base classes (BaseDropdown with watchedInputs, BaseRadio, BaseInput, BaseFeatureGridComponent legacy pattern, BaseDocumentCheck ViewChild pattern, E-Form base classes)
 - `references/softever-lib-components.md` — Production-migrated library components (GridComponent with model/computed/effect, TabComponent, PaginationComponent, FileUploadButton with linkedSignal, LibSkeletonDirective)

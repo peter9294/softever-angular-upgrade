@@ -1,6 +1,6 @@
 ---
 allowed-tools: ["Read", "Grep", "Glob", "Write", "Edit", "Bash", "Task", "WebSearch", "mcp__angular-cli__get_best_practices", "mcp__angular-cli__search_documentation", "mcp__angular-cli__find_examples", "mcp__angular-cli__list_projects", "mcp__angular-cli__onpush_zoneless_migration"]
-description: Full Angular upgrade orchestration — analyze risks, plan migration, execute changes, review for bugs, verify build. Encodes 8 anti-pattern rules from real upgrade experience.
+description: Full Angular upgrade orchestration — analyze risks, plan migration, execute changes, review for bugs, verify build. Encodes 9 anti-pattern rules from real upgrade experience.
 ---
 
 # Angular Upgrade Orchestration
@@ -20,7 +20,7 @@ Git status: `! git status --short`
 
 **Spawn the upgrade-analyzer agent** to perform a read-only risk assessment.
 
-The analyzer will check all 8 rules:
+The analyzer will check all 9 rules:
 1. RULE 1: Input mutation pre-scan
 2. RULE 2: Complex component identification (10+ inputs)
 3. RULE 3: SCSS internalization gaps (if applicable)
@@ -29,6 +29,7 @@ The analyzer will check all 8 rules:
 6. RULE 6: Duplicate selector scan for monorepo
 7. RULE 7: Missing signal () in existing code
 8. RULE 8: Ensure ng update schematics will run
+9. RULE 9: ViewChild static timing — never convert @ViewChild({ static: true }) to viewChild()
 
 **Output:** Risk assessment report with recommended migration order.
 
@@ -55,10 +56,12 @@ Present the plan to the user for approval before proceeding.
 
 ### For Signal Migration:
 1. Pre-scan inputs (RULE 1) — classify by binding type
-2. Complex components atomically (RULE 2)
-3. Run `ng generate @angular/core:signals` for bulk migration
-4. Manually fix edge cases the tool can't handle
-5. Post-migration () verification (RULE 7)
+2. Audit @ViewChild({ static: true }) — preserve as decorators (RULE 9)
+3. Complex components atomically (RULE 2)
+4. Run `ng generate @angular/core:signals` for bulk migration
+5. Manually fix edge cases the tool can't handle
+6. Post-migration () verification (RULE 7)
+7. Verify no static ViewChild was converted (RULE 9)
 
 ### For OnPush Migration:
 1. Subscribe callback audit (RULE 4)
@@ -89,8 +92,9 @@ The reviewer checks:
 3. Two-way binding issues
 4. Effect timing issues
 5. Subscribe leaks
-6. Test compatibility
+6. Test compatibility (ViewChild mocking, signal input setInput)
 7. SCSS gaps (RULE 3)
+8. Static ViewChild incorrectly converted to viewChild() (RULE 9)
 
 **Fix all CRITICAL and HIGH issues** before proceeding.
 
@@ -139,6 +143,7 @@ Before executing any migration step, mentally verify:
 - [ ] RULE 6: Have I checked for duplicate selectors (if upgrading to 19+)?
 - [ ] RULE 7: After migration, have I verified all signal () calls?
 - [ ] RULE 8: Am I using ng update schematics (not manual upgrade)?
+- [ ] RULE 9: Have I preserved all @ViewChild({ static: true }) as decorators?
 
 ## Escalation Protocol
 
