@@ -1,5 +1,26 @@
 # Signal Migration Patterns — Complete Catalog
 
+## Property Classification Table
+
+When analyzing a component, classify every class property first:
+
+| Category | Example | Action |
+|----------|---------|--------|
+| `signal()` | `data = signal<X>()` | Already migrated — check template uses `()` |
+| `input()` | `name = input<string>()` | Already migrated — read-only |
+| `output()` | `save = output<X>()` | Already migrated |
+| `model()` | `page = model<Page>()` | Already migrated — immutable updates only |
+| `computed()` | `count = computed(() => ...)` | Already migrated — check deps are signals |
+| `linkedSignal()` | `item = linkedSignal(...)` | Already migrated — derived mutable state |
+| `viewChild()` | `modal = viewChild<X>('ref')` | Already migrated |
+| `@ViewChild` | `@ViewChild('ref') modal: X` | Migrate IF non-static AND not mocked in tests (RULE 9) |
+| `@ViewChild({ static: true })` | `@ViewChild('tpl', { static: true })` | **KEEP** — no signal equivalent |
+| `@Input()` | `@Input() data: X` | Must migrate — use Decision Tree below |
+| `@Output()` | `@Output() save = new EventEmitter()` | Must migrate to `output()` |
+| Plain variable | `data: SomeDTO` | Check if OnPush-safe (see OnPush skill) |
+| `BehaviorSubject` | `data$ = new BehaviorSubject(null)` | Consider converting to `signal()` |
+| Subscription | `sub: Subscription` | Not a template concern — but audit for OnPush |
+
 ## Decision Tree
 
 ```
