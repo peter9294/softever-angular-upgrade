@@ -153,65 +153,30 @@ Not every property needs to be a signal. Only convert:
 - Loop counters
 - Template-local variables
 
-## Anti-Pattern 8: Converting @ViewChild({ static: true }) to viewChild()
+## Anti-Pattern 8: Using viewChild() Instead of viewChild.required() for Static Queries
 
-**Real failure:** Grid component's 27 `@ViewChild({ static: true })` template refs were converted to `viewChild()` signals. Result: 73 NG0100 test failures. The entire batch had to be reverted.
+**Real failure:** Grid component's 27 `@ViewChild({ static: true })` template refs were converted to `viewChild()` (non-required). Result: 73 NG0100 test failures because `viewChild()` is not the static equivalent.
 
 ```typescript
-// WRONG — viewChild() resolves during CD, NOT before ngOnInit
+// WRONG — viewChild() is the non-static equivalent, returns undefined initially
 switchTpl = viewChild<TemplateRef<any>>('switchTpl');
-nameTpl = viewChild<TemplateRef<any>>('nameTpl');
 
 ngOnInit() {
   this.setColumns();
-  // switchTpl() and nameTpl() are UNDEFINED here!
-  // They resolve during the FIRST change detection cycle,
-  // but ngOnInit runs BEFORE the first CD for static queries.
+  // switchTpl() is UNDEFINED here!
 }
 
-// RIGHT — keep @ViewChild({ static: true }) for template refs needed in ngOnInit
-@ViewChild('switchTpl', { static: true }) switchTpl: TemplateRef<any>;
-@ViewChild('nameTpl', { static: true }) nameTpl: TemplateRef<any>;
+// RIGHT — viewChild.required() is the { static: true } equivalent
+switchTpl = viewChild.required<TemplateRef<any>>('switchTpl');
 
 ngOnInit() {
-  this.setColumns();  // Template refs are available here
+  this.setColumns();  // switchTpl() is available here
 }
 ```
 
-**Why NG0100?** When `viewChild()` returns `undefined` in `ngOnInit`, `setColumns()` sets column templates to `undefined`. During the first CD cycle, `viewChild()` resolves to the actual `TemplateRef`. On the dev-mode re-check, Angular sees the binding changed (`undefined` → `TemplateRef`) and throws NG0100. The error aborts CD, preventing child components from rendering.
+**Key rule:** `@ViewChild({ static: true })` → `viewChild.required()`, NOT `viewChild()`.
 
-**Angular's official position:** Signal-based `viewChild()` has NO `{ static: true }` equivalent. The decorator API is fully supported and is the correct tool for static queries. GitHub issue #54376 tracks the feature request.
-
-**Detection:**
-```bash
-# Find all static ViewChild — these must NOT be converted
-grep -rn "ViewChild.*static.*true" --include="*.ts" src/ projects/
-```
-
-## Anti-Pattern 9: Using viewChild.required for Testable Properties
-
-**Real failure:** `base-document-check.ts` had modal refs converted to `viewChild.required` with getter accessors. 13 test failures across 2 spec files because tests couldn't mock the modals.
-
-```typescript
-// WRONG — viewChild.required creates an unmockable getter
-private readonly _approveModal = viewChild.required<SoftModalComponent>('approveModal');
-get approveModal() { return this._approveModal(); }
-
-// Tests CANNOT do this:
-component.approveModal = jasmine.createSpyObj('modal', ['open', 'close']);
-// TypeError: Cannot set property which has only a getter
-
-// RIGHT — plain @ViewChild for properties that tests need to mock
-@ViewChild('approveModal') approveModal: SoftModalComponent;
-@ViewChild('resultModal') resultModal: SoftModalComponent;
-
-// Tests CAN do this:
-component.approveModal = jasmine.createSpyObj('modal', ['open', 'close']);
-```
-
-**Rule of thumb:** If a component property is mocked in tests (especially modals, child components), keep it as `@ViewChild` unless you're willing to restructure all the test mocks.
-
-## Anti-Pattern 10: Mixing signal() and @Input()
+## Anti-Pattern 9: Mixing signal() and @Input()
 
 During incremental migration, you might have both patterns in one component. This is OK temporarily, but:
 
