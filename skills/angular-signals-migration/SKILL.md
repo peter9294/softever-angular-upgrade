@@ -208,6 +208,39 @@ onFilterPropChange(prop: string, value: any) {
 }
 ```
 
+## Parent-Child Data Flow Rules (RULE 10)
+
+### model() Requires Two-Way Binding
+
+When a child component uses `model()` with `patchData`-style updates, the parent **MUST** use `[(data)]`:
+
+```html
+<!-- WRONG — child's data.set() never propagates back -->
+<v-tax-form [data]="data"></v-tax-form>
+
+<!-- RIGHT — two-way binding propagates changes -->
+<v-tax-form [(data)]="data"></v-tax-form>
+```
+
+### linkedSignal Must Mutate Source
+
+When a child uses `linkedSignal()` with `patchData`, mutate the source input before triggering the signal:
+
+```typescript
+// WRONG — disconnects from parent after first call
+patchData(field: string, value: any) {
+  this.data.set({ ...this.data(), [field]: value });
+}
+
+// RIGHT — mutate source, then trigger CD
+patchData(field: string, value: any) {
+  this.setData()[field] = value;          // mutate parent's object
+  this.data.set({ ...this.setData() });   // new ref triggers CD
+}
+```
+
+See `references/signal-anti-patterns.md` — Anti-Patterns 9 and 10 for real failure stories.
+
 ## Object Identity Rule
 
 **Signals detect changes by object identity, NOT mutations.**

@@ -176,7 +176,53 @@ ngOnInit() {
 
 **Key rule:** `@ViewChild({ static: true })` → `viewChild.required()`, NOT `viewChild()`.
 
-## Anti-Pattern 9: Mixing signal() and @Input()
+## Anti-Pattern 9: model() with One-Way [data] Binding in Parent
+
+**Real failure:** All truck register sub-forms (v-tax-form, v-general-form, v-license-form, etc.) used `model()` for `data` but parents bound with `[data]="data"` (one-way). Child's `patchData` called `this.data.set({ ...this.data(), [field]: value })` — the signal fired, CD worked, but the new object never propagated back to the parent. On submit, the parent sent stale data. Date pickers and all fields changed through child sub-forms were silently lost.
+
+Same bug affected admin/truck e-form sub-forms (v-1-truck-type-form, v-2-compartment-form, v-3-inspection-checkbox-form).
+
+```html
+<!-- WRONG — child creates new object via data.set(), parent never receives it -->
+<v-tax-form [data]="data"></v-tax-form>
+
+<!-- RIGHT — two-way binding propagates child's data.set() back to parent -->
+<v-tax-form [(data)]="data"></v-tax-form>
+```
+
+**Detection:**
+```bash
+# Find model() properties in child components
+grep -rn "data.*=.*model" --include="*.ts" src/ projects/
+
+# Then check if parent templates use one-way [data] for those components
+grep -rn "\[data\]=" --include="*.html" src/ projects/
+```
+
+**Rule:** When a child uses `model()` with `patchData`-style updates (`data.set({...})`), the parent **MUST** use `[(data)]` two-way binding. Otherwise the parent's property is never updated and submissions send stale data.
+
+## Anti-Pattern 10: linkedSignal with Spread in patchData Disconnecting from Parent
+
+**Real failure:** Driver profile's `v-user-profile` used `linkedSignal(() => this.setData())` and `patchData` did `this.data.set({ ...this.data(), [field]: value })`. After the first `patchData` call, the linkedSignal held a new object disconnected from the parent's source. All subsequent edits in v-user-profile were lost on submit because the parent's `this.data` was never updated.
+
+```typescript
+// WRONG — creates new object, disconnects from parent's source
+patchData(field: string, value: any) {
+  this.data.set({ ...this.data(), [field]: value });
+}
+
+// RIGHT — mutate source input first (updates parent), then trigger signal for CD
+patchData(field: string, value: any) {
+  this.setData()[field] = value;          // mutate parent's object
+  this.data.set({ ...this.setData() });   // new ref triggers CD
+}
+```
+
+**Why it works:** `this.setData()` returns the parent's input object. Mutating it ensures the parent's `this.data` has the updated field. Then creating a new object reference via spread triggers the linkedSignal's CD. On subsequent calls, `this.setData()` still returns the parent's object (which was mutated), so all changes accumulate correctly.
+
+**Rule:** When using `linkedSignal` with `patchData`, always mutate the source input object (`this.setData()[field] = value`) before triggering the signal. Never spread only from `this.data()` which may be a disconnected copy.
+
+## Anti-Pattern 11: Mixing signal() and @Input()
 
 During incremental migration, you might have both patterns in one component. This is OK temporarily, but:
 
